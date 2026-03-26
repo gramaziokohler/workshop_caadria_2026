@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<ProductSettings version="1.0">
+  <Products>
+    <Product name="RobotWare" version="6.08.0134" id="abb.robotics.robotware">
+      <Settings>
+        <Setting id="abb.robotics.robotware.base" displayName="RobotWare Base" robot="1" />
+        <Setting id="abb.robotics.robotware.options.pcinterface" displayName="616-1 PC Interface" robot="1" />
+        <Setting id="abb.robotics.robotware.options.multitasking" displayName="623-1 Multitasking" robot="1" />
+        <Setting id="abb.robotics.robotware.options.udpuc" displayName="UDPUC Driver" robot="1" />
+        <Setting id="abb.robotics.robotware.options.externallyguidedmotion" displayName="689-1 Externally Guided Motion (EGM)" robot="1" />
+        <Setting id="abb.robotics.robotware.options.motorcommutation" displayName="Motor Commutation" robot="1" />
+        <Setting id="abb.robotics.robotware.options.sis" displayName="Service Info System" robot="1" />
+        <Setting id="abb.robotics.robotware.options.calpend" displayName="Pendelum Calibration" robot="1" />
+        <Setting id="abb.robotics.robotware.drivesystems.drive.dc790a1.du790a1.dm430a" displayName="Drive System IRB 2600/4400/6400R" robot="1" />
+        <Setting id="abb.robotics.robotware.options.calaxis" displayName="Axis Calibration" robot="1" />
+        <Setting id="abb.robotics.robotware.robots.irb2600.20-1_65.typeb" displayName="IRB 2600-20/1.65 Type B" robot="1" />
+      </Settings>
+    </Product>
+  </Products>
+</ProductSettings>
