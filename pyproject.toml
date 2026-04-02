@@ -1,0 +1,10 @@
+[project]
+name = "workshop-caadria-2026"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "compas-fab @ git+https://github.com/compas-dev/compas_fab.git@wip_process",
+    "compas_robots @ git+https://github.com/compas-dev/compas_robots.git@main"
+]
