@@ -9,7 +9,16 @@ of duplicating the boilerplate.
 import threading
 import logging
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    filename="grasshopper_agent.log",
+    filemode="a",
+)
+
 from antikythera_agents.launcher import AgentLauncher
+
+LOG = logging.getLogger("GrasshopperAgent")
 
 
 class GrasshopperPendingTask:
@@ -41,6 +50,7 @@ class GrasshopperAgent:
         )
 
     def execute_task(self, task, context=None):
+        LOG.debug(f"started executing task: {task.id} of type {task.type}")
         event = threading.Event()
         self._worker.pending_task = GrasshopperPendingTask(
             task_data={
@@ -53,18 +63,23 @@ class GrasshopperAgent:
             event=event,
         )
 
+        LOG.debug(
+            "pending task set on worker, calling update_result to trigger GH timer"
+        )
         self._worker.update_result(self._worker.pending_task, delay=10)
 
-        while not event.wait(timeout=0.5):
-            if context and context.is_cancelled:
-                raise RuntimeError("Task cancelled while waiting for result")
-            if self._worker._is_cancelled:
-                raise RuntimeError("Agent stopped while waiting for result")
-
-        return self._worker.pending_task.task_outputs
-        # outputs = self._worker.pending_task.task_outputs
-        # self._worker.pending_task = None
-        # return outputs
+        try:
+            LOG.debug("waiting for task result event to be set")
+            while not event.wait(timeout=0.5):
+                if context and context.is_cancelled:
+                    raise RuntimeError("Task cancelled while waiting for result")
+                if self._worker._is_cancelled:
+                    raise RuntimeError("Agent stopped while waiting for result")
+        finally:
+            LOG.debug("finished executing task")
+            outputs = self._worker.pending_task.task_outputs
+            self._worker.pending_task = None
+            return outputs
 
     def dispose(self):
         self._initialized = False
