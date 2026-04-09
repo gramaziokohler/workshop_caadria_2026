@@ -1,0 +1,115 @@
+{
+    "version": "1.0",
+    "id": "caadria-dfab",
+    "name": "CAADRIA Design-to-Fabrication",
+    "description": "Linear design → fabrication → robot pipeline across three GH documents.",
+    "tasks": [
+        {
+            "id": "start",
+            "type": "system.start",
+            "outputs": [
+                {
+                    "name": "start_time"
+                }
+            ]
+        },
+        {
+            "id": "design",
+            "type": "design.compute",
+            "description": "Designer builds and approves a TimberModel in design.gh",
+            "outputs": [
+                {
+                    "name": "timber_model",
+                    "set_to": "timber_model"
+                }
+            ],
+            "depends_on": [
+                {
+                    "id": "start"
+                }
+            ]
+        },
+        {
+            "id": "fabrication",
+            "type": "fabrication.toolpaths",
+            "description": "Fabrication GH computes toolpaths from the model; engineer approves before releasing to robot",
+            "inputs": [
+                {
+                    "name": "timber_model",
+                    "get_from": "timber_model"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "toolpaths",
+                    "set_to": "toolpaths"
+                }
+            ],
+            "depends_on": [
+                {
+                    "id": "design"
+                }
+            ]
+        },
+        {
+            "id": "robot",
+            "type": "robot.mill",
+            "description": "Robot GH executes the toolpaths and reports completion",
+            "inputs": [
+                {
+                    "name": "toolpaths",
+                    "get_from": "toolpaths"
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "milling_report",
+                    "set_to": "milling_report"
+                }
+            ],
+            "depends_on": [
+                {
+                    "id": "fabrication"
+                }
+            ]
+        },
+        {
+            "id": "notify",
+            "type": "user_interaction.notify",
+            "description": "Broadcast completion to all participants",
+            "params": [
+                {
+                    "name": "title",
+                    "value": "Pipeline complete"
+                },
+                {
+                    "name": "message",
+                    "value": "Milling finished! Check the assembly sequence."
+                },
+                {
+                    "name": "level",
+                    "value": "success"
+                }
+            ],
+            "depends_on": [
+                {
+                    "id": "robot"
+                }
+            ]
+        },
+        {
+            "id": "end",
+            "type": "system.end",
+            "outputs": [
+                {
+                    "name": "end_time"
+                }
+            ],
+            "depends_on": [
+                {
+                    "id": "notify"
+                }
+            ]
+        }
+    ]
+}

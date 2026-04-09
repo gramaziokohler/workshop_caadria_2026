@@ -17,11 +17,11 @@ import re
 
 # New requirements line (everything after "# r: ")
 # Set to None to leave existing value unchanged
-NEW_REQUIREMENTS = "timber_design==0.2.0"
+NEW_REQUIREMENTS = "compas==2.15.1, timber_design==0.2.0, compas_eve"
 
 # New venv line (everything after "# venv: ")
 # Set to None to leave existing value unchanged
-NEW_VENV = "caddria2026"
+NEW_VENV = "akt_agent"
 
 # ============================================================
 
