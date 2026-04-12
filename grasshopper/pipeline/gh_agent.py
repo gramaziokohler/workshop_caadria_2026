@@ -12,13 +12,18 @@ import logging
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    filename="grasshopper_agent.log",
+    filename="/Users/chenkasirer/repos/GKR/workshop_caadria_2026/grasshopper/pipeline/grasshopper_agent.log",
     filemode="a",
 )
 
 from antikythera_agents.launcher import AgentLauncher
 
 LOG = logging.getLogger("GrasshopperAgent")
+
+
+class GrasshopperAgentLauncher(AgentLauncher):
+    def _initialize_agents(self):
+        pass
 
 
 class GrasshopperPendingTask:
@@ -66,7 +71,7 @@ class GrasshopperAgent:
         LOG.debug(
             "pending task set on worker, calling update_result to trigger GH timer"
         )
-        self._worker.update_result(self._worker.pending_task, delay=10)
+        self._worker.update_result(self._worker.pending_task)
 
         try:
             LOG.debug("waiting for task result event to be set")
@@ -88,11 +93,6 @@ class GrasshopperAgent:
         return {"execute": "execute_task"}
 
 
-class _Launcher(AgentLauncher):
-    def _initialize_agents(self):
-        pass
-
-
 def run_agent(
     worker,
     task_type,
@@ -109,8 +109,7 @@ def run_agent(
     worker.task_result = None
 
     gh_agent = GrasshopperAgent(task_type, worker, logger_name=logger_name)
-
-    launcher = _Launcher(broker_host, broker_port)
+    launcher = GrasshopperAgentLauncher(broker_host, broker_port)
     launcher.agents[task_type.split(".", 1)[0]] = gh_agent
     worker.launcher = launcher
     launcher.start()
@@ -129,19 +128,3 @@ def stop_agent(worker):
     if event:
         event.set()
     worker.display_message("stopped")
-
-
-# def submit_result(worker, result_dict):
-#     """Unblock the waiting execute_task thread with the given result.
-
-#     Returns True if a pending task was submitted, False otherwise.
-#     """
-#     pending = worker.pending_task
-#     if not pending:
-#         return False
-#     worker.task_result = result_dict
-#     # event = worker.result_event
-#     # if event:
-#     #     event.set()
-#     worker.pending_task = None
-#     return True

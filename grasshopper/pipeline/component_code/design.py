@@ -1,6 +1,5 @@
 # r: compas==2.15.1, timber_design==0.2.0, compas_eve
 # venv: akt_agent
-# env: /Users/chenkasirer/repos/GKR/workshop_caadria_2026/grasshopper/pipeline
 
 """Design Agent — design.gh
 
@@ -13,11 +12,15 @@ The agent sends the model back to the orchestrator which stores it in the
 session and forwards it to the Fabrication agent.
 """
 
+from compas_rhino.devtools import DevTools
+
+DevTools.ensure_path()
+
 import Grasshopper
 import scriptcontext as sc
 
 from compas_eve.ghpython import BackgroundWorker
-from gh_agent import run_agent, stop_agent, submit_result
+from gh_agent import run_agent, stop_agent
 
 DEFAULT_TASK_TYPE = "design.compute"
 
@@ -40,47 +43,40 @@ class DesignAgentComponent(Grasshopper.Kernel.GH_ScriptInstance):
         if not enabled:
             BackgroundWorker.stop_instance_by_component(ghenv)  # noqa: F821
             ghenv.Component.Message = "disabled"  # noqa: F821
-            return None, None, None, "disabled"
-
-        # ── Config-change detection → force fresh worker ──────────────────────
-        config = (task_type, broker_host, broker_port)
-        config_key = "akt_design_config_{}".format(ghenv.Component.InstanceGuid)  # noqa: F821
-        config_changed = sc.sticky.get(config_key) != config
-        sc.sticky[config_key] = config
+            return None
 
         # ── BackgroundWorker ──────────────────────────────────────────────────
+        # listetning starts
         worker = BackgroundWorker.instance_by_component(
             ghenv,  # noqa: F821
             lambda w, tt=task_type, bh=broker_host, bp=broker_port: run_agent(
-                self, w, tt, bh, bp, "DesignAgent"
+                w, tt, bh, bp, "FabricationAgent"
             ),
             dispose_function=stop_agent,
             auto_set_done=False,
-            force_new=config_changed,
         )
 
         if not worker.is_working() and not worker.is_done():
             worker.start_work()
             ghenv.Component.Message = "starting…"  # noqa: F821
-            return None, None, None, "starting"
+            return None
 
-        # ── Submit ────────────────────────────────────────────────────────────
-        pending = getattr(worker, "pending_task", None)
+        # ── Expose task data ───────────────────────────────────────────────────
+        pending_task = getattr(worker, "pending_task", None)
 
-        if submit and timber_model is not None and pending:
-            submit_result(worker, {"timber_model": timber_model})
-            ghenv.Component.Message = "listening"  # noqa: F821
-            return None, None, None, "submitted"
+        if submit and pending_task:
+            pending_task.task_outputs = {"timber_model": timber_model}
+            if pending_task.event:
+                pending_task.event.set()
 
-        # ── Expose current task to the canvas ─────────────────────────────────
-        if pending:
-            ghenv.Component.Message = "task received — design!"  # noqa: F821
-            return (
-                pending["id"],
-                pending["params"],
-                pending["output_keys"],
-                "task_received",
-            )
+            ghenv.Component.Message = "submitted"  # noqa: F821
+            return None
+
+        # if assigned task by antikythera
+        if pending_task:
+            # we got assigned a task by the orchestrator
+            ghenv.Component.Message = "task received — generate toolpaths!"  # noqa: F821
+            return None
 
         ghenv.Component.Message = "listening"  # noqa: F821
-        return None, None, None, "listening"
+        return None
