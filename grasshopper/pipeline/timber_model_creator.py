@@ -95,7 +95,7 @@ class TimberModelCreator:
 
         # Case 2: AN INTERIOR BEAM MEETS A BOUNDARY BEAM (CATEGORY)
         # When an interior beam meets a boundary beam, assign a butt or step joint
-        self._rules.append(CategoryRule(TStepJoint, "interior", "boundary", max_distance=self.tolerance))
+        self._rules.append(CategoryRule(TButtJoint, "interior", "boundary", max_distance=self.tolerance, mill_depth=0.005))
 
         # Case 3: TWO BOUNDARY BEAMS (CATEGORY)
         # When two boundary beams meet (usually at the corners), assign a miter joint
@@ -103,7 +103,7 @@ class TimberModelCreator:
 
         # Case 4: MEETING (T-Shape)
         # The default rule for topological T-joints (one beam ends against the face of another)
-        self._rules.append(TopologyRule(topology_type=JointTopology.TOPO_T, joint_type=TBirdsmouthJoint, max_distance=self.tolerance))
+        # self._rules.append(TopologyRule(topology_type=JointTopology.TOPO_T, joint_type=TButtJoint, max_distance=self.tolerance))
 
     def _apply_rules(self, process_joinery: bool) -> None:
         """
