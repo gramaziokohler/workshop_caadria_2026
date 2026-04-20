@@ -25,6 +25,12 @@ class GrasshopperAgentLauncher(AgentLauncher):
     def _initialize_agents(self):
         pass
 
+    def on_task_start(self, message):
+        try:
+            super().on_task_start(message)
+        except Exception:
+            LOG.exception("on_task_start failed (message may be incompatible with this antikythera version)")
+
 
 class GrasshopperPendingTask:
     def __init__(self, task_data, event):
@@ -47,12 +53,10 @@ class GrasshopperAgent:
         self._task_type = task_type
         self._worker = worker
         self._initialized = True
-        self.logger = logging.getLogger(logger_name)
+        # self.logger = logging.getLogger(logger_name)
 
     def can_claim_task(self, task):
-        return task.type == self._task_type and not getattr(
-            self._worker, "pending_task", None
-        )
+        return task.type == self._task_type  # and not getattr(self._worker, "pending_task", None)
 
     def execute_task(self, task, context=None):
         LOG.debug(f"started executing task: {task.id} of type {task.type}")
@@ -68,9 +72,7 @@ class GrasshopperAgent:
             event=event,
         )
 
-        LOG.debug(
-            "pending task set on worker, calling update_result to trigger GH timer"
-        )
+        LOG.debug("pending task set on worker, calling update_result to trigger GH timer")
         self._worker.update_result(self._worker.pending_task)
 
         try:
@@ -118,6 +120,7 @@ def run_agent(
 
 def stop_agent(worker):
     """Dispose callback for BackgroundWorker.stop_instance_by_component."""
+    LOG.debug("stop_agent called")
     launcher = worker.launcher
     if launcher:
         try:

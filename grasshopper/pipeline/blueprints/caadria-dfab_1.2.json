@@ -1,0 +1,130 @@
+{
+  "version": "1.2",
+  "id": "caadria-dfab",
+  "name": "CAADRIA Design-to-Fabrication",
+  "tasks": [
+    {
+      "id": "start",
+      "type": "system.start",
+      "outputs": [
+        {
+          "name": "start_time"
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "type": "design.compute",
+      "description": "Designer builds and approves a TimberModel in design.gh",
+      "outputs": [
+        {
+          "name": "timber_model",
+          "set_to": "timber_model"
+        }
+      ],
+      "depends_on": [
+        {
+          "id": "start"
+        }
+      ]
+    },
+    {
+      "id": "fabrication",
+      "type": "fabrication.manager",
+      "description": "Fabrication manager, chooses the beam to be processed next and marks finished beams as 'fabricated'",
+      "inputs": [
+        {
+          "name": "timber_model",
+          "get_from": "timber_model"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "toolpaths",
+          "set_to": "toolpaths"
+        },
+        {
+          "name": "timber_model"
+        }
+      ],
+      "depends_on": [
+        {
+          "id": "design"
+        }
+      ]
+    },
+    {
+      "id": "robot_simulation",
+      "type": "robot.mill",
+      "description": "Machining operator, configures toolpath parameters in the currently fabricated beam, generates toolpaths and triggers fabrication.",
+      "inputs": [
+        {
+          "name": "timber_model"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "timber_model"
+        },
+        {
+          "name": "toolpaths"
+        }
+      ],
+      "depends_on": [
+        {
+          "id": "fabrication"
+        }
+      ]
+    },
+    {
+      "id": "fabrication_control",
+      "type": "fabrication.manager",
+      "description": "Broadcast completion to all participants",
+      "inputs": [
+        {
+          "name": "timber_model"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "timber_model"
+        }
+      ],
+      "depends_on": [
+        {
+          "id": "robot_milling"
+        }
+      ]
+    },
+    {
+      "id": "end",
+      "type": "system.end",
+      "outputs": [
+        {
+          "name": "end_time"
+        }
+      ],
+      "depends_on": [
+        {
+          "id": "fabrication_control"
+        }
+      ]
+    },
+    {
+      "id": "robot_milling",
+      "type": "robot.milling",
+      "description": "Executes robotic milling based on the received toolpaths.",
+      "inputs": [
+        {
+          "name": "toolpaths"
+        }
+      ],
+      "depends_on": [
+        {
+          "id": "robot_simulation"
+        }
+      ]
+    }
+  ],
+  "description": "Linear design → fabrication → robot pipeline across three GH documents."
+}

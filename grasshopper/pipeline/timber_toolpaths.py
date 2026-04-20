@@ -86,7 +86,6 @@ def slice_volume_offset_spiral_toolpath(
     slicing_frames = []
 
     levels = int(beam.height / stepdown) + 1
-    print("levels", levels)
 
     for i in range(levels):
         frame = machining_frame.copy()
@@ -107,9 +106,7 @@ def slice_volume_offset_spiral_toolpath(
 
         for i in range(num_offsets):
             slicing_plane = frame_to_rhino_plane(slicing_frame)
-            native_offset = current_offset.native_curve.Offset(
-                slicing_plane, offset_step, tolerance, CURVE_OFFSET_STYLE
-            )
+            native_offset = current_offset.native_curve.Offset(slicing_plane, offset_step, tolerance, CURVE_OFFSET_STYLE)
             current_offset = Curve.from_native(native_offset[0])
 
             slice_offsets.append(current_offset)
@@ -133,9 +130,7 @@ def slice_volume_offset_spiral_toolpath(
                 segment = NurbsCurve.from_native(subcurve)
 
                 max_divisions = max(1, int(segment.length() / min_step))
-                _params, points = segment.divide_by_count(
-                    max_divisions, return_points=True
-                )
+                _params, points = segment.divide_by_count(max_divisions, return_points=True)
 
                 if next_slice_start_point is None:
                     next_slice_start_point = points[0]
@@ -171,15 +166,13 @@ def get_toolpath_for_plane_cut(
 ) -> list[Frame]:
     slices = blank_brep_at_origin.slice(frame)
     if len(slices) != 1:
-        raise ValueError(
-            "Expected exactly one slice from the blank at the machining plane."
-        )
+        raise ValueError("Expected exactly one slice from the blank at the machining plane.")
 
     slice_surface = RhinoNurbsSurface.from_corners(slices[0].points[0:4])
 
     path = []
     radius = tool_radius / 2
-    num_steps = int((beam.height / 2) / radius) - 1
+    num_steps = max(2, int((beam.height / 2) / radius) - 1)
     isocurves = []
 
     # Determine the U/V curve direction (most aligned with world X axis)
@@ -250,9 +243,7 @@ def get_toolpath_from_jackraftercut_processing(
     frame = Frame.from_plane(plane_at_origin)
     slices = blank_brep_at_origin.slice(frame)
     if len(slices) != 1:
-        raise ValueError(
-            "Expected exactly one slice from the blank at the machining plane."
-        )
+        raise ValueError("Expected exactly one slice from the blank at the machining plane.")
 
     path, slice_surface, isocurves = get_toolpath_for_plane_cut(
         beam,
@@ -284,9 +275,7 @@ def get_toolpath_for_drilling_processing(
     cylinder = processing.cylinder_from_params_and_element(beam)
     cylinder_at_origin = cylinder.transformed(machining_transformation)
     center_line = cylinder_at_origin.axis.copy()
-    center_line.transform(
-        Translation.from_vector(center_line.direction * -cylinder.height / 2)
-    )
+    center_line.transform(Translation.from_vector(center_line.direction * -cylinder.height / 2))
 
     plane = Plane(center_line.start, center_line.direction)
     entry_frame = Frame.from_plane(plane)
@@ -374,9 +363,7 @@ def add_safe_frames(path: list[Frame], approach_vector: Vector) -> list[Frame]:
     return path
 
 
-def interpolate_frames(
-    start_frame: Frame, end_frame: Frame, min_step: float
-) -> list[Frame]:
+def interpolate_frames(start_frame: Frame, end_frame: Frame, min_step: float) -> list[Frame]:
     line = Line(start_frame.point, end_frame.point)
     max_divisions = max(1, int(line.length / min_step))
     return start_frame.interpolate_frames(end_frame, max_divisions)
@@ -396,12 +383,8 @@ def get_toolpath_from_processing(
     **kwargs,
 ):
     # Automatically pick machining side if not specified (-1)
-    machining_side = (
-        machining_side if machining_side != -1 else processing.ref_side_index
-    )
-    machining_frame = beam.ref_sides[machining_side].transformed(
-        machining_transformation
-    )
+    machining_side = machining_side if machining_side != -1 else processing.ref_side_index
+    machining_frame = beam.ref_sides[machining_side].transformed(machining_transformation)
 
     # We flip the machining frame to point Z axis inwards into the beam
     # matching what would likely be the TCP frame of the machine
