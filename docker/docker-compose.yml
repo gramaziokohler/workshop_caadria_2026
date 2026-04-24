@@ -41,7 +41,7 @@ services:
   # Orchestrator — FastAPI server that manages blueprint sessions
   # ---------------------------------------------------------------------------
   orchestrator:
-    image: gramaziokohler/antikythera:0.2.0
+    image: gramaziokohler/antikythera:0.3.0
     container_name: akt-orchestrator
     ports:
       - "8000:8000"   # REST API (proxied by the frontend nginx)
@@ -62,7 +62,7 @@ services:
   # System agents — background workers for built-in task types (system.*)
   # ---------------------------------------------------------------------------
   agents:
-    image: gramaziokohler/antikythera:0.2.0
+    image: gramaziokohler/antikythera:0.3.0
     container_name: akt-agents-sys
     depends_on:
       mqtt-broker:
@@ -85,7 +85,7 @@ services:
   # changes; both entry points are included by default).
   # ---------------------------------------------------------------------------
   frontend:
-    image: gramaziokohler/antikythera-frontend:0.2.0
+    image: gramaziokohler/antikythera-frontend:0.3.0
     container_name: akt-frontend
     ports:
       - "80:80"       # Serves the UI; /api/* is proxied to orchestrator:8000
