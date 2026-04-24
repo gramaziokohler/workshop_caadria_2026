@@ -1,3 +1,4 @@
+from lib_rf_system import RFSystem
 from compas.datastructures import Mesh
 from compas_timber.connections import JointTopology
 from compas_timber.connections import LMiterJoint
@@ -6,9 +7,10 @@ from compas_timber.connections import TButtJoint
 from compas_timber.connections import TStepJoint
 from compas_timber.connections import XLapJoint
 from compas_timber.elements import Beam
+from compas_timber.errors import BeamJoiningError
 from compas_timber.model import TimberModel
-from rf_system import RFSystem
 from timber_design.workflow import CategoryRule
+from timber_design.workflow import DirectRule
 from timber_design.workflow import JointRuleSolver
 from timber_design.workflow import TopologyRule
 
@@ -46,7 +48,11 @@ class TimberModelCreator:
 
         # Step 2: Definitions
         self._rules = []  # Reset rules
+        # Two options: add general rules based on categories/topology
         self._add_rules()
+
+        # Or, alternatively, define rules based on the RF edge graph
+        # self._add_rules_direct()
 
         # Step 3: Calculation
         self._apply_rules(process_joinery)
@@ -95,7 +101,7 @@ class TimberModelCreator:
 
         # Case 2: AN INTERIOR BEAM MEETS A BOUNDARY BEAM (CATEGORY)
         # When an interior beam meets a boundary beam, assign a butt or step joint
-        self._rules.append(CategoryRule(TButtJoint, "interior", "boundary", max_distance=self.tolerance, mill_depth=0.005))
+        self._rules.append(CategoryRule(TStepJoint, "interior", "boundary", max_distance=self.tolerance))
 
         # Case 3: TWO BOUNDARY BEAMS (CATEGORY)
         # When two boundary beams meet (usually at the corners), assign a miter joint
@@ -103,7 +109,35 @@ class TimberModelCreator:
 
         # Case 4: MEETING (T-Shape)
         # The default rule for topological T-joints (one beam ends against the face of another)
-        # self._rules.append(TopologyRule(topology_type=JointTopology.TOPO_T, joint_type=TButtJoint, max_distance=self.tolerance))
+        self._rules.append(TopologyRule(topology_type=JointTopology.TOPO_T, joint_type=TButtJoint, max_distance=self.tolerance, mill_depth=0.004))
+
+    def _process_joinery(self, model: TimberModel) -> None:
+        joints = list(model.joints)
+
+        # Step 1: let every joint extend its beams' blanks
+        for joint in joints:
+            try:
+                joint.check_elements_compatibility(joint.elements)
+                joint.add_extensions()
+            except BeamJoiningError as bje:
+                self.joining_errors.append(bje)
+
+        # Step 2: cap any per-joint extension that exceeds the beam width
+        for beam in model.beams:
+            capped = {}
+            for joint_key, (start, end) in beam._blank_extensions.items():
+                capped[joint_key] = (min(start, beam.width), min(end, beam.width))
+                print("capped blank extension")
+            beam._blank_extensions = capped
+
+        # Step 3: add the joint features (cuts, notches, etc.) on the extended blanks
+        for joint in joints:
+            try:
+                joint.add_features()
+            except BeamJoiningError as bje:
+                self.joining_errors.append(bje)
+            except ValueError as ve:
+                self.joining_errors.append(BeamJoiningError(joint.elements, joint, debug_info=str(ve)))
 
     def _apply_rules(self, process_joinery: bool) -> None:
         """
@@ -124,4 +158,73 @@ class TimberModelCreator:
         # Actually cut the geometry (this can be slow for large models)
         if process_joinery:
             print("Processing geometry (cutting joints)...")
-            self.timber_model.process_joinery()
+            self._process_joinery(self.timber_model)
+            # self.timber_model.process_joinery()
+
+    # --------------------------------------------------------------------------
+    # Optional: direct joint strategies (more explicit, less scalable)
+    # --------------------------------------------------------------------------
+
+    def _add_rules_direct(self) -> None:
+        """
+        Alternative workflow: create rules directly from the RF edge graph instead of
+        relying on categories/topology inference.
+        """
+        self._add_direct_joint_rules()
+        self._add_direct_boundary_joint_rules()
+
+    def _add_direct_joint_rules(self) -> None:
+        mesh: Mesh = self.rf_system.mesh
+
+        for edge in mesh.edges():
+            if mesh.is_edge_on_boundary(edge):
+                continue
+
+            beam = mesh.edge_attribute(edge, "beam")
+            next_edge = mesh.edge_attribute(edge, "next_edge")
+            prev_edge = mesh.edge_attribute(edge, "prev_edge")
+
+            next_beam = mesh.edge_attribute(next_edge, "beam") if next_edge else None
+            prev_beam = mesh.edge_attribute(prev_edge, "beam") if prev_edge else None
+
+            if beam is None:
+                continue
+
+            # Transition from interior to boundary: combine butt + lap logic.
+            if next_edge and mesh.is_edge_on_boundary(next_edge):
+                if next_beam:
+                    self._rules.append(DirectRule(TButtJoint, [beam, next_beam], self.tolerance))
+                if prev_beam:
+                    self._rules.append(DirectRule(XLapJoint, [prev_beam, beam], self.tolerance))
+                continue
+
+            if prev_edge and mesh.is_edge_on_boundary(prev_edge):
+                if prev_beam:
+                    self._rules.append(DirectRule(TButtJoint, [beam, prev_beam], self.tolerance))
+                if next_beam:
+                    self._rules.append(DirectRule(XLapJoint, [next_beam, beam], self.tolerance))
+                continue
+
+            # Interior-interior transitions: use lap joints on both sides.
+            if next_beam:
+                self._rules.append(DirectRule(XLapJoint, [next_beam, beam], self.tolerance))
+            if prev_beam:
+                self._rules.append(DirectRule(XLapJoint, [prev_beam, beam], self.tolerance))
+
+    def _add_direct_boundary_joint_rules(self) -> None:
+        mesh: Mesh = self.rf_system.mesh
+
+        for vertex in mesh.vertices_on_boundary():
+            # Find boundary edges connected to this vertex
+            boundary_edges = []
+            for edge in mesh.vertex_edges(vertex):
+                if mesh.is_edge_on_boundary(edge):
+                    boundary_edges.append(edge)
+
+            if len(boundary_edges) != 2:
+                continue
+
+            beam_a = mesh.edge_attribute(boundary_edges[0], "beam")
+            beam_b = mesh.edge_attribute(boundary_edges[1], "beam")
+            if beam_a and beam_b:
+                self._rules.append(DirectRule(LMiterJoint, [beam_a, beam_b], self.tolerance))

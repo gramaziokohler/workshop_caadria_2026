@@ -1,37 +1,31 @@
-import math
-
-from compas.geometry import (
-    Frame,
-    Transformation,
-    Translation,
-    Point,
-    Line,
-    Vector,
-    Plane,
-    Brep,
-    Curve,
-    NurbsCurve,
-)
-from compas.geometry import intersection_line_line, Polyline, offset_polyline
+from compas.geometry import Brep
+from compas.geometry import Curve
+from compas.geometry import Frame
+from compas.geometry import Line
+from compas.geometry import NurbsCurve
+from compas.geometry import Plane
+from compas.geometry import Point
+from compas.geometry import Polyline
+from compas.geometry import Transformation
+from compas.geometry import Translation
+from compas.geometry import Vector
+from compas.geometry import intersection_line_line
+from compas.geometry import offset_polyline
 from compas.itertools import linspace
-
-from compas_timber.elements import Beam
-from compas_timber.fabrication import (
-    JackRafterCut,
-    JackRafterCutProxy,
-    StepJoint,
-    StepJointNotch,
-)
-from compas_timber.fabrication import Lap, LapProxy
-from compas_timber.fabrication import Drilling, FreeContour
-from compas_timber.fabrication import BTLxProcessing
-from compas_timber.utils import correct_polyline_direction
-
 from compas_rhino.conversions import frame_to_rhino_plane
 from compas_rhino.geometry import RhinoNurbsSurface
-
+from compas_timber.elements import Beam
+from compas_timber.fabrication import BTLxProcessing
+from compas_timber.fabrication import Drilling
+from compas_timber.fabrication import FreeContour
+from compas_timber.fabrication import JackRafterCut
+from compas_timber.fabrication import JackRafterCutProxy
+from compas_timber.fabrication import Lap
+from compas_timber.fabrication import LapProxy
+from compas_timber.fabrication import StepJoint
+from compas_timber.fabrication import StepJointNotch
+from compas_timber.utils import correct_polyline_direction
 from Rhino.Geometry import CurveOffsetCornerStyle  # type: ignore
-
 
 # Spiral paths start out from the center of the slice and move outwards if this is enabled
 USE_CENTER_OUT_CUTTING = False
@@ -72,14 +66,7 @@ def get_toolpath_from_lap_processing(
 
 
 def slice_volume_offset_spiral_toolpath(
-    brep: Brep,
-    beam: Beam,
-    machining_frame: Frame,
-    tool_radius: float,
-    stepdown: float,
-    min_step: float,
-    approach_height: float,
-    tolerance: float,
+    brep: Brep, beam: Beam, machining_frame: Frame, tool_radius: float, stepdown: float, min_step: float, approach_height: float, tolerance: float
 ):
 
     slices = []
@@ -172,7 +159,11 @@ def get_toolpath_for_plane_cut(
 
     path = []
     radius = tool_radius / 2
-    num_steps = max(2, int((beam.height / 2) / radius) - 1)
+
+    # Safety Check: Ensure we don't calculate negative steps if tool is larger than feature
+    calculated_steps = int((beam.height / 2) / radius)
+    num_steps = max(2, calculated_steps)
+
     isocurves = []
 
     # Determine the U/V curve direction (most aligned with world X axis)
@@ -330,10 +321,7 @@ def get_toolpath_for_free_contour_processing(
     pt = intersection_line_line(pln.lines[0], pln.lines[-1])
     pln[0] = pt[0]
     pln[-1] = pt[0]
-    volume = Brep.from_extrusion(
-        NurbsCurve.from_points(pln, degree=1),
-        -ref_side.normal * processing.contour_param_object.depth,
-    )
+    volume = Brep.from_extrusion(NurbsCurve.from_points(pln, degree=1), -ref_side.normal * processing.contour_param_object.depth)
     volume_at_origin = volume.transformed(machining_transformation)
 
     path, flat_spirals, slicing_frames = slice_volume_offset_spiral_toolpath(
@@ -375,13 +363,7 @@ def divide_line(line: Line, step_length: float) -> list[Point]:
     return [line.point_at(t) for t in params]
 
 
-def get_toolpath_from_processing(
-    beam: Beam,
-    processing: BTLxProcessing,
-    machining_transformation: Transformation,
-    machining_side: int,
-    **kwargs,
-):
+def get_toolpath_from_processing(beam: Beam, processing: BTLxProcessing, machining_transformation: Transformation, machining_side: int, **kwargs):
     # Automatically pick machining side if not specified (-1)
     machining_side = machining_side if machining_side != -1 else processing.ref_side_index
     machining_frame = beam.ref_sides[machining_side].transformed(machining_transformation)
@@ -402,10 +384,4 @@ def get_toolpath_from_processing(
         toolpath_function = get_toolpath_for_drilling_processing
 
     if toolpath_function:
-        return toolpath_function(
-            beam,
-            processing,
-            machining_transformation,
-            machining_frame=machining_frame,
-            **kwargs,
-        )
+        return toolpath_function(beam, processing, machining_transformation, machining_frame=machining_frame, **kwargs)
