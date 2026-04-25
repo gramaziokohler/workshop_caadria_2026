@@ -29,7 +29,14 @@ git clone https://github.com/gramaziokohler/workshop_caadria_2026.git
 
 ---
 
-## Starting the Workshop Software
+## Grasshopper
+
+> The example files and libraries are compatible with Rhino 8 only.
+
+For all the example files to work properly, please first run `examples/00_install.gh` in Grasshopper. This will install the required libraries and dependencies.
+
+
+## Starting the Orchestrator
 
 1. Make sure **Docker Desktop is open and running** (you should see the whale icon 🐳 in your menu/taskbar).
 2. In your terminal, navigate into the workshop folder:
