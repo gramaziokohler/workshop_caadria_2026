@@ -15,6 +15,47 @@ from timber_design.workflow import JointRuleSolver
 from timber_design.workflow import TopologyRule
 
 
+def model_process_joinery(model: TimberModel) -> list[BeamJoiningError]:
+    """
+    NOTE: This is a workaround for an issue with certain joints which, in certain conditions,
+    produce rediculously long extensions due to e.g. the wrong plane being chosen.
+    It's a re-implementation of the TimberModel's `process_joinery` method, but with an extra step to cap blank extensions before adding features.
+    While this is a workaround and the joint implementation should be fixed, it's probably a good idea to cap extensions proportionally to the beam dimensions.
+    """
+    # this should be idempotent, so clear any previous extensions/features before adding
+    for beam in model.beams:
+        beam.reset()
+
+    joints = list(model.joints)
+    joining_errors = []
+    # Step 1: let every joint extend its beams' blanks
+    for joint in joints:
+        try:
+            joint.check_elements_compatibility(joint.elements)
+            joint.add_extensions()
+        except BeamJoiningError as bje:
+            joining_errors.append(bje)
+
+    # Step 2: cap any per-joint extension that exceeds the beam width
+    for beam in model.beams:
+        capped = {}
+        for joint_key, (start, end) in beam._blank_extensions.items():
+            capped[joint_key] = (min(start, beam.width), min(end, beam.width))
+            print("capped blank extension")
+        beam._blank_extensions = capped
+
+    # Step 3: add the joint features (cuts, notches, etc.) on the extended blanks
+    for joint in joints:
+        try:
+            joint.add_features()
+        except BeamJoiningError as bje:
+            joining_errors.append(bje)
+        except ValueError as ve:
+            joining_errors.append(BeamJoiningError(joint.elements, joint, debug_info=str(ve)))
+
+    return joining_errors
+
+
 class TimberModelCreator:
     """
     A helper class to create a Timber Model from an instance of `RFSystem` class.
@@ -111,34 +152,6 @@ class TimberModelCreator:
         # The default rule for topological T-joints (one beam ends against the face of another)
         self._rules.append(TopologyRule(topology_type=JointTopology.TOPO_T, joint_type=TButtJoint, max_distance=self.tolerance, mill_depth=0.004))
 
-    def _process_joinery(self, model: TimberModel) -> None:
-        joints = list(model.joints)
-
-        # Step 1: let every joint extend its beams' blanks
-        for joint in joints:
-            try:
-                joint.check_elements_compatibility(joint.elements)
-                joint.add_extensions()
-            except BeamJoiningError as bje:
-                self.joining_errors.append(bje)
-
-        # Step 2: cap any per-joint extension that exceeds the beam width
-        for beam in model.beams:
-            capped = {}
-            for joint_key, (start, end) in beam._blank_extensions.items():
-                capped[joint_key] = (min(start, beam.width), min(end, beam.width))
-                print("capped blank extension")
-            beam._blank_extensions = capped
-
-        # Step 3: add the joint features (cuts, notches, etc.) on the extended blanks
-        for joint in joints:
-            try:
-                joint.add_features()
-            except BeamJoiningError as bje:
-                self.joining_errors.append(bje)
-            except ValueError as ve:
-                self.joining_errors.append(BeamJoiningError(joint.elements, joint, debug_info=str(ve)))
-
     def _apply_rules(self, process_joinery: bool) -> None:
         """
         Runs the solver to find intersections and apply the rules we defined above.
@@ -158,8 +171,7 @@ class TimberModelCreator:
         # Actually cut the geometry (this can be slow for large models)
         if process_joinery:
             print("Processing geometry (cutting joints)...")
-            self._process_joinery(self.timber_model)
-            # self.timber_model.process_joinery()
+            self.joining_errors = model_process_joinery(self.timber_model)
 
     # --------------------------------------------------------------------------
     # Optional: direct joint strategies (more explicit, less scalable)
