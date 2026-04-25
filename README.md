@@ -1,4 +1,6 @@
-# Workshop CAADRIA 2026
+# Co-Authoring Timber: Humans, Algorithms, and Robots 
+
+[CAADRIA 2026 - Workshop B01](https://docs.google.com/document/d/1eJ9YbpuD04XLQwKufKgbBaLVxkBj4XfpUfleg1IdPAY/edit?tab=t.0#heading=h.gpx8jh4s9uxt)
 
 ![CAADRIA 2026](./images/caadria_ws_2026.png)
 
