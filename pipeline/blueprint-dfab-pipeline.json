@@ -1,5 +1,5 @@
 {
-  "version": "1.10",
+  "version": "1.11",
   "id": "robotic-fabrication-pipeline",
   "name": "Design-to-Fabrication",
   "description": "Linear design → fabrication → robot pipeline across three GH documents.",
@@ -74,6 +74,9 @@
       "outputs": [
         {
           "name": "toolpaths"
+        },
+        {
+          "name": "has_processing"
         }
       ],
       "depends_on": [
@@ -90,6 +93,9 @@
       "inputs": [
         {
           "name": "toolpaths"
+        },
+        {
+          "name": "has_processing"
         }
       ],
       "depends_on": [
