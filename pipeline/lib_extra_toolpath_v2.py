@@ -45,6 +45,7 @@ def lap_toolpath(
     path_step=None,
     stepover=None,
     approach_height=5.0,
+    overcut=3.0,
 ):
     """Create an ordered list of tool-tip frames for milling a Lap pocket.
 
@@ -77,6 +78,10 @@ def lap_toolpath(
     approach_height : float, optional
         Safe height above the pocket top for approach / retract moves.
         Default is ``5.0``.
+    overcut : float, optional
+        Extra distance the tool travels beyond each side of the pocket along
+        the width direction.  Use this to ensure a clean cut through the full
+        width of the beam.  Default is ``3.0``.
 
     Returns
     -------
@@ -134,12 +139,13 @@ def lap_toolpath(
     if usable_length <= 0 or usable_width <= 0:
         raise ValueError("Bit diameter ({:.2f}) is too large for this pocket (length={:.2f}, width={:.2f}).".format(bit_diameter, length, width))
 
-    # Raster lines across the width
-    num_lines = max(1, int(math.ceil(usable_width / stepover)) + 1)
-    actual_stepover = usable_width / max(num_lines - 1, 1)
+    # Raster lines across the length
+    num_lines = max(1, int(math.ceil(usable_length / stepover)) + 1)
+    actual_stepover = usable_length / max(num_lines - 1, 1)
 
-    # Points per raster line
-    num_points = max(2, int(math.ceil(usable_length / path_step)) + 1)
+    # Points per raster line (along the width, including overcut at both ends)
+    line_travel = usable_width + 2.0 * overcut
+    num_points = max(2, int(math.ceil(line_travel / path_step)) + 1)
 
     # Pocket origin offset inward by bit_radius from the start & front walls
     origin = Point(*start_frame.point) + length_dir * bit_radius + width_dir * bit_radius
@@ -159,15 +165,15 @@ def lap_toolpath(
         d_offset = depth_dir * (pass_depth * (pass_idx + 1))
 
         for line_idx in range(num_lines):
-            w_offset = width_dir * (actual_stepover * line_idx)
+            l_offset = length_dir * (actual_stepover * line_idx)
 
-            # zig-zag: alternate length direction each line
+            # zig-zag: alternate width direction each line
             t_values = list(linspace(0.0, 1.0, num_points))
             if line_idx % 2 == 1:
                 t_values = list(reversed(t_values))
 
             for t in t_values:
-                pt = origin + length_dir * (usable_length * t) + w_offset + d_offset
+                pt = origin + width_dir * (line_travel * t - overcut) + l_offset + d_offset
                 frames.append(Frame(pt, tool_x, tool_y))
 
     # ---- safe retract above the last point ----
@@ -189,6 +195,7 @@ def lap_toolpaths_for_beam(
     path_step=None,
     stepover=None,
     approach_height=5.0,
+    overcut=0.003,
 ):
     """Generate toolpath frames for every Lap processing on *beam*.
 
@@ -208,6 +215,7 @@ def lap_toolpaths_for_beam(
                 path_step=path_step,
                 stepover=stepover,
                 approach_height=approach_height,
+                overcut=overcut,
             )
             results.append((processing, frames))
     return results
